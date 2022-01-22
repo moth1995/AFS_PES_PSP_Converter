@@ -2,7 +2,7 @@ from utils import read_int32
 
 class AFS:
 
-    def __init__(self,file_location=None, is_psp=True):
+    def __init__(self,file_location=None):
         """
         Inicializamos la clase, variables de la misma, y luego leemos el archivo
         Recibe dos parametros file_location que es un string de la ubicacion del archivo y
@@ -10,7 +10,6 @@ class AFS:
         """
         self.file_location = file_location
         self.data = bytearray()
-        self.is_psp = is_psp
         self.toc = bytearray()
         self.toc_size = 2048
         self.afs_header_data = bytearray("AFS","utf8") + bytearray(1)
@@ -25,11 +24,7 @@ class AFS:
         afs_file = open(self.file_location, "rb")
         file_contents = bytearray(afs_file.read())
         afs_file.close()
-        if self.is_psp:
-            self.toc_size = read_int32(file_contents[:4]) * 2048 # The start of first file will indicate the size of TOC
-        else:
-            file_contents = file_contents[8:] # Skipping the header and number of files
-            self.toc_size = read_int32(file_contents[:4]) - 8 # The start of first file will indicate the size of TOC
+        self.toc_size = read_int32(file_contents[:4]) # The start of first file will indicate the size of TOC
         self.toc = file_contents[:self.toc_size]
         self.data = file_contents[self.toc_size:]
         self.files_indexes = [read_int32(self.toc[i:i+4]) for i in range(0,self.toc_size,8)]
@@ -44,14 +39,8 @@ class AFS:
         file_location = self.file_location = file_location or self.file_location
         
         afs_file = open(file_location,"wb")
-        if self.is_psp:
-            afs_file.write(self.afs_header_data)
-            afs_file.write(self.get_number_of_files().to_bytes(4,"little"))
-            afs_file.write(self.toc)
-            afs_file.write(self.data)
-        else:
-            afs_file.write(self.toc)
-            afs_file.write(self.data)
+        afs_file.write(self.toc)
+        afs_file.write(self.data)
         
     def get_number_of_files(self):
         """
@@ -64,7 +53,7 @@ class AFS:
         """
         Convierte los indices y tamaños de archivo al formato generico de afs, asi mismo reinicia el TOC y lo carga con los nuevos valores
         """
-        self.files_indexes = [index * 2048 + 8  if index != 0 else index * 2048 for index in self.files_indexes]
+        self.files_indexes = [index * 2048 for index in self.files_indexes]
         self.files_sizes = [index * 2048 for index in self.files_sizes]
         index_and_sizes = [x for y in zip(self.files_indexes, self.files_sizes) for x in y]
         self.toc = bytearray()
@@ -75,7 +64,7 @@ class AFS:
         """
         Convierte los indices y tamaños de archivo al formato afs psp, asi mismo reinicia el TOC y lo carga con los nuevos valores
         """
-        self.files_indexes = [int((index - 8) / 2048) if index != 0 else index * 2048 for index in self.files_indexes]
+        self.files_indexes = [int(index / 2048) for index in self.files_indexes]
         self.files_sizes = [int(index / 2048) for index in self.files_sizes]
         index_and_sizes = [x for y in zip(self.files_indexes, self.files_sizes) for x in y]
         self.toc = bytearray()
