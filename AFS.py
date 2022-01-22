@@ -27,11 +27,13 @@ class AFS:
         afs_file.close()
         if self.is_psp:
             self.toc_size = read_int32(file_contents[:4]) * 2048 # The start of first file will indicate the size of TOC
+            self.toc = file_contents[:self.toc_size]
+            self.data = file_contents[self.toc_size:]
         else:
             file_contents = file_contents[8:] # Skipping the header and number of files
             self.toc_size = read_int32(file_contents[:4]) # The start of first file will indicate the size of TOC
-        self.toc = file_contents[:self.toc_size] 
-        self.data = file_contents[self.toc_size:]
+            self.toc = file_contents[:self.toc_size]
+            self.data = file_contents[self.toc_size-8:]
         self.files_indexes = [read_int32(self.toc[i:i+4]) for i in range(0,self.toc_size,8)]
         self.files_sizes = [read_int32(self.toc[i:i+4]) for i in range(4,self.toc_size,8)]
 
@@ -47,10 +49,11 @@ class AFS:
         if self.is_psp:
             afs_file.write(self.afs_header_data)
             afs_file.write(self.get_number_of_files().to_bytes(4,"little"))
-            afs_file.write(self.toc)
+            afs_file.write(self.toc[:-8])
             afs_file.write(self.data)
         else:
             afs_file.write(self.toc)
+            #afs_file.write(bytearray(8))
             afs_file.write(self.data)
         
     def get_number_of_files(self):
